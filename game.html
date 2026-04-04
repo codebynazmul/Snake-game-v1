@@ -118,7 +118,7 @@ function draw() {
     if(direction === "RIGHT") headX += box;
     if(direction === "DOWN") headY += box;
 
-    // Eat food
+    
     if(headX === food.x && headY === food.y) {
         score++;
         document.getElementById("score").innerText = score;
