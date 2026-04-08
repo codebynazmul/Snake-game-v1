@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game v1.04 - Campaign Edition (Fixed v2)</title>
+    <style>
+        :root {
+            --bg-color: #030712;
+            --primary: #38bdf8;
+            --secondary: #10b981;
+            --accent: #f43f5e;
+            --gold: #f59e0b;
+            --purple: #8b5cf6;
+            --text: #f9fafb;
+            --panel: rgba(17, 24, 39, 0.95);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; overflow: hidden;
+            transition: transform 0.1s ease-out;
+        }
+
+        .container { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 10px; padding: 15px; }
+        header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        h1 { font-size: 1.5rem; font-weight: 900; letter-spacing: -1px; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .dashboard {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            background: var(--panel); padding: 12px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); text-align: center; gap: 10px;
+        }
+        .dash-item { display: flex; flex-direction: column; }
+        .dash-label { font-size: 0.65rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; }
+        .dash-value { font-size: 1.1rem; font-weight: 700; color: var(--primary); }
+
+        .game-viewport { position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        canvas { background: #000; display: block; max-width: 100%; border: 2px solid #1f2937; border-radius: 8px; }
+
+        .overlay {
+            position: absolute; inset: 0; background: rgba(3, 7, 18, 0.9);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100; padding: 20px; text-align: center;
+        }
+
+        .btn {
+            background: var(--primary); color: #000; border: none; padding: 12px 24px;
+            font-weight: 800; border-radius: 8px; cursor: pointer; text-transform: uppercase;
+            transition: all 0.2s; margin: 8px; font-size: 0.9rem;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4); }
+        .btn.secondary { background: #374151; color: white; }
+
+        .level-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; width: 100%; }
+        .level-card {
+            background: #1f2937; padding: 15px; border-radius: 8px; cursor: pointer;
+            border: 2px solid transparent; transition: all 0.2s;
+        }
+        .level-card.locked { opacity: 0.4; cursor: not-allowed; }
+        .level-card.active { border-color: var(--primary); background: rgba(56, 189, 248, 0.1); }
+        .level-num { font-size: 1.2rem; font-weight: 900; display: block; }
+        .level-name { font-size: 0.6rem; color: #9ca3af; }
+
+        .badge-container { position: absolute; top: 10px; left: 10px; display: flex; gap: 5px; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.6rem; font-weight: 900; animation: pulse 1s infinite alternate; }
+        @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
+
+        footer { margin-top: 10px; font-size: 0.75rem; opacity: 0.6; }
+        footer a { color: var(--primary); text-decoration: none; font-weight: 700; }
+
+        .controls-hint { font-size: 0.7rem; color: #6b7280; margin-top: 10px; text-align: center; }
+        .key { background: #374151; padding: 2px 6px; border-radius: 4px; color: #fff; }
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 480px) {
+            .level-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>SNAKE v1.04</h1>
+        <div id="muteBtn" style="cursor:pointer; font-size: 1.2rem;" onclick="toggleMute()">🔊</div>
+    </header>
+
+    <div class="dashboard">
+        <div class="dash-item">
+            <span class="dash-label">Level</span>
+            <span id="curLevel" class="dash-value">1</span>
+        </div>
+        <div class="dash-item">
+            <span class="dash-label">Score</span>
+            <span id="score" class="dash-value">0</span>
+        </div>
+        <div class="dash-item">
+            <span class="dash-label">Best</span>
+            <span id="highScore" class="dash-value">0</span>
+        </div>
+    </div>
+
+    <div class="game-viewport">
+        <canvas id="game" width="400" height="400"></canvas>
+        <div id="badges" class="badge-container"></div>
+
+        <!-- Menu Overlay -->
+        <div id="menuOverlay" class="overlay">
+            <h2 style="font-size: 1.8rem; margin-bottom: 5px;">CAMPAIGN MODE</h2>
+            <p style="font-size: 0.8rem; color: #9ca3af;">Select a mission to begin</p>
+            
+            <div class="level-grid" id="levelGrid"></div>
+
+            <button class="btn" onclick="startSelectedLevel()">LAUNCH MISSION</button>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="deathOverlay" class="overlay hidden">
+            <h2 id="deathTitle" style="color: var(--accent); font-size: 2rem;">WRECKED</h2>
+            <p id="deathReason" style="margin: 10px 0; color: #9ca3af;">You hit a wall.</p>
+            <div style="margin: 15px 0;">
+                <span class="dash-label">Final Score</span>
+                <div id="finalScore" style="font-size: 2rem; font-weight: 900;">0</div>
+            </div>
+            <button class="btn" onclick="retryLevel()">RETRY</button>
+            <button class="btn secondary" onclick="showMenu()">CAMPAIGN</button>
+        </div>
+
+        <!-- Victory Overlay -->
+        <div id="winOverlay" class="overlay hidden">
+            <h2 style="color: var(--secondary); font-size: 2rem;">MISSION CLEAR</h2>
+            <p style="margin: 10px 0; color: #9ca3af;">Next level unlocked!</p>
+            <button class="btn" onclick="nextLevel()">NEXT MISSION</button>
+            <button class="btn secondary" onclick="showMenu()">MENU</button>
+        </div>
+    </div>
+
+    <div class="controls-hint">
+        <span class="key">ARROWS</span> Move | <span class="key">SPACE</span> Turbo (2x Score)
+    </div>
+
+    <footer>
+        CREATED BY <a href="https://www.linkedin.com/in/md-nazmul-hasan-120346328/" target="_blank">MD NAZMUL HASAN</a>
+    </footer>
+</div>
+
+<script>
+    // --- Audio Engine ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let muted = false;
+    function playSfx(f, t, d, v=0.1) {
+        if(muted) return;
+        try {
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+            g.gain.setValueAtTime(v, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + d);
+        } catch(e) {}
+    }
+    const sfx = {
+        eat: () => playSfx(600, 'sine', 0.1),
+        hit: () => { screenShake(); playSfx(100, 'sawtooth', 0.4); },
+        win: () => { playSfx(400, 'square', 0.2); setTimeout(()=>playSfx(600, 'square', 0.3), 150); },
+        click: () => playSfx(800, 'sine', 0.05)
+    };
+    function toggleMute() { muted = !muted; document.getElementById('muteBtn').innerText = muted ? '🔇' : '🔊'; }
+
+    // --- Game Config ---
+    const canvas = document.getElementById("game"), ctx = canvas.getContext("2d");
+    const box = 20, grid = 20;
+    let snake, food, direction, nextDir, score, isTurbo, gameInterval, gameRunning, levelIdx = 0;
+    let unlockedLevels = parseInt(localStorage.getItem('snakeUnlocked')) || 1;
+    let highScores = JSON.parse(localStorage.getItem('snakeHighs')) || {};
+
+    const LEVELS = [
+        { name: "Greenhorn", target: 50, speed: 120, walls: [] },
+        { name: "The Box", target: 80, speed: 110, walls: [{x:5,y:5,w:10,h:1},{x:5,y:14,w:10,h:1}] },
+        { name: "Crossroads", target: 100, speed: 100, walls: [{x:9,y:4,w:2,h:12},{x:4,y:9,w:12,h:2}] },
+        { name: "Narrow", target: 120, speed: 90, walls: [{x:0,y:5,w:15,h:1},{x:5,y:14,w:15,h:1}] },
+        { name: "The Maze", target: 150, speed: 80, walls: [{x:4,y:4,w:4,h:4},{x:12,y:4,w:4,h:4},{x:4,y:12,w:4,h:4},{x:12,y:12,w:4,h:4}] },
+        { name: "Final Run", target: 200, speed: 70, walls: [{x:2,y:2,w:16,h:1},{x:2,y:17,w:16,h:1},{x:2,y:3,w:1,h:14},{x:17,y:3,w:1,h:14}] }
+    ];
+
+    function screenShake() {
+        document.body.style.transform = `translate(${Math.random()*12-6}px, ${Math.random()*12-6}px)`;
+        setTimeout(() => document.body.style.transform = 'translate(0,0)', 100);
+    }
+
+    function initLevelGrid() {
+        const gridEl = document.getElementById('levelGrid');
+        gridEl.innerHTML = '';
+        LEVELS.forEach((l, i) => {
+            const card = document.createElement('div');
+            card.className = `level-card ${i+1 > unlockedLevels ? 'locked' : ''} ${i === levelIdx ? 'active' : ''}`;
+            card.onclick = () => { if(i+1 <= unlockedLevels) { levelIdx = i; sfx.click(); initLevelGrid(); } };
+            card.innerHTML = `<span class="level-num">${i+1}</span><span class="level-name">${l.name}</span>`;
+            gridEl.appendChild(card);
+        });
+    }
+
+    function createFood() {
+        let pos = { x: Math.floor(Math.random()*grid)*box, y: Math.floor(Math.random()*grid)*box };
+        let onWall = LEVELS[levelIdx].walls.some(w => pos.x >= w.x*box && pos.x < (w.x+w.w)*box && pos.y >= w.y*box && pos.y < (w.y+w.h)*box);
+        let onSnake = snake.some(p => p.x === pos.x && p.y === pos.y);
+        if(onSnake || onWall) return createFood();
+        return pos;
+    }
+
+    function showMenu() {
+        gameRunning = false;
+        if(gameInterval) clearInterval(gameInterval);
+        document.querySelectorAll('.overlay').forEach(o => o.classList.add('hidden'));
+        document.getElementById('menuOverlay').classList.remove('hidden');
+        initLevelGrid();
+    }
+
+    function startSelectedLevel() {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        document.getElementById('menuOverlay').classList.add('hidden');
+        initGame();
+    }
+
+    function initGame() {
+        if(gameInterval) clearInterval(gameInterval);
+        snake = [{x: 10*box, y: 10*box}, {x: 9*box, y: 10*box}];
+        direction = nextDir = "RIGHT";
+        score = 0; isTurbo = false;
+        food = createFood();
+        gameRunning = true;
+        updateUI();
+        runLoop();
+    }
+
+    function updateUI() {
+        document.getElementById('score').innerText = score;
+        document.getElementById('curLevel').innerText = levelIdx + 1;
+        document.getElementById('highScore').innerText = highScores[levelIdx] || 0;
+        const badges = document.getElementById('badges');
+        badges.innerHTML = `<div class="badge" style="background:var(--secondary)">TARGET: ${LEVELS[levelIdx].target}</div>`;
+        if(isTurbo) badges.innerHTML += `<div class="badge" style="background:var(--accent)">TURBO 2X</div>`;
+    }
+
+    function runLoop() {
+        if(gameInterval) clearInterval(gameInterval);
+        let speed = LEVELS[levelIdx].speed;
+        if(isTurbo) speed /= 1.8;
+        gameInterval = setInterval(draw, speed);
+    }
+
+    function retryLevel() {
+        document.getElementById('deathOverlay').classList.add('hidden');
+        initGame();
+    }
+
+    function nextLevel() {
+        if(levelIdx < LEVELS.length - 1) {
+            levelIdx++;
+            document.getElementById('winOverlay').classList.add('hidden');
+            initGame();
+        } else {
+            showMenu();
+        }
+    }
+
+    window.addEventListener('keydown', e => {
+        const k = e.key.toUpperCase();
+        if(k === 'ARROWUP' || k === 'W') { if(direction !== 'DOWN') nextDir = 'UP'; }
+        else if(k === 'ARROWDOWN' || k === 'S') { if(direction !== 'UP') nextDir = 'DOWN'; }
+        else if(k === 'ARROWLEFT' || k === 'A') { if(direction !== 'RIGHT') nextDir = 'LEFT'; }
+        else if(k === 'ARROWRIGHT' || k === 'D') { if(direction !== 'LEFT') nextDir = 'RIGHT'; }
+        else if(k === ' ') { 
+            if(!isTurbo && gameRunning) {
+                isTurbo = true; updateUI(); runLoop(); 
+            }
+        }
+    });
+
+    window.addEventListener('keyup', e => {
+        if(e.key === ' ') { 
+            if(isTurbo) {
+                isTurbo = false; updateUI(); runLoop(); 
+            }
+        }
+    });
+
+    function draw() {
+        if(!gameRunning) return;
+        direction = nextDir;
+        let head = { ...snake[0] };
+        if(direction === 'UP') head.y -= box;
+        else if(direction === 'DOWN') head.y += box;
+        else if(direction === 'LEFT') head.x -= box;
+        else if(direction === 'RIGHT') head.x += box;
+
+        // Collision Check
+        let hitWall = head.x < 0 || head.y < 0 || head.x >= 400 || head.y >= 400;
+        let hitSelf = snake.some(p => p.x === head.x && p.y === head.y);
+        let hitLevelWall = LEVELS[levelIdx].walls.some(w => head.x >= w.x*box && head.x < (w.x+w.w)*box && head.y >= w.y*box && head.y < (w.y+w.h)*box);
+
+        if(hitWall || hitSelf || hitLevelWall) {
+            sfx.hit();
+            gameRunning = false;
+            clearInterval(gameInterval);
+            if(score > (highScores[levelIdx] || 0)) {
+                highScores[levelIdx] = score;
+                localStorage.setItem('snakeHighs', JSON.stringify(highScores));
+            }
+            document.getElementById('finalScore').innerText = score;
+            document.getElementById('deathReason').innerText = hitLevelWall ? "You hit an obstacle." : (hitSelf ? "You bit yourself." : "You hit the boundary.");
+            document.getElementById('deathOverlay').classList.remove('hidden');
+            return;
+        }
+
+        snake.unshift(head);
+
+        if(head.x === food.x && head.y === food.y) {
+            score += isTurbo ? 20 : 10;
+            sfx.eat();
+            food = createFood();
+            updateUI();
+            
+            // Fixed transition check: ensure we only trigger win if score matches or exceeds target
+            if(score >= LEVELS[levelIdx].target) {
+                sfx.win();
+                gameRunning = false;
+                clearInterval(gameInterval);
+                if(levelIdx + 1 === unlockedLevels && unlockedLevels < LEVELS.length) {
+                    unlockedLevels++;
+                    localStorage.setItem('snakeUnlocked', unlockedLevels);
+                }
+                document.getElementById('winOverlay').classList.remove('hidden');
+                return;
+            }
+        } else {
+            snake.pop();
+        }
+
+        // Render
+        ctx.fillStyle = '#000'; ctx.fillRect(0,0,400,400);
+        
+        // Draw Walls
+        ctx.fillStyle = '#374151';
+        LEVELS[levelIdx].walls.forEach(w => ctx.fillRect(w.x*box, w.y*box, w.w*box, w.h*box));
+
+        // Draw Food
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent');
+        ctx.beginPath(); ctx.arc(food.x+10, food.y+10, 8, 0, Math.PI*2); ctx.fill();
+
+        // Draw Snake
+        snake.forEach((p, i) => {
+            ctx.fillStyle = i === 0 ? getComputedStyle(document.documentElement).getPropertyValue('--primary') : getComputedStyle(document.documentElement).getPropertyValue('--secondary');
+            if(isTurbo) ctx.fillStyle = i === 0 ? '#fff' : getComputedStyle(document.documentElement).getPropertyValue('--accent');
+            
+            ctx.beginPath();
+            ctx.roundRect(p.x+1, p.y+1, box-2, box-2, 4);
+            ctx.fill();
+
+            if(i === 0) {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(p.x+4, p.y+4, 3, 3);
+                ctx.fillRect(p.x+13, p.y+4, 3, 3);
+            }
+        });
+    }
+
+    showMenu();
+</script>
+</body>
+</html>
