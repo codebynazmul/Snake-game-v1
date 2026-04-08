@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game v3.0 - Pro Edition</title>
+    <style>
+        :root {
+            /* Default: Neon Theme */
+            --bg-color: #0f172a;
+            --canvas-bg: #020617;
+            --primary-color: #38bdf8;
+            --secondary-color: #22c55e;
+            --danger-color: #ef4444;
+            --text-color: #f8fafc;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --border-glow: rgba(56, 189, 248, 0.3);
+        }
+
+        [data-theme="retro"] {
+            --bg-color: #1a1a1a;
+            --canvas-bg: #000000;
+            --primary-color: #facc15;
+            --secondary-color: #facc15;
+            --danger-color: #ffffff;
+            --text-color: #facc15;
+            --panel-bg: #262626;
+            --border-glow: rgba(250, 204, 21, 0.2);
+        }
+
+        [data-theme="classic"] {
+            --bg-color: #f1f5f9;
+            --canvas-bg: #ffffff;
+            --primary-color: #475569;
+            --secondary-color: #16a34a;
+            --danger-color: #dc2626;
+            --text-color: #0f172a;
+            --panel-bg: #e2e8f0;
+            --border-glow: rgba(71, 85, 105, 0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 2rem;
+            letter-spacing: 4px;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            background: var(--panel-bg);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .stat { text-align: center; }
+        .stat-label { font-size: 0.7rem; opacity: 0.7; }
+        .stat-value { font-size: 1.2rem; font-weight: bold; }
+
+        .game-area { position: relative; }
+        canvas {
+            background: var(--canvas-bg);
+            border: 4px solid var(--primary-color);
+            border-radius: 4px;
+            box-shadow: 0 0 20px var(--border-glow);
+            max-width: 100%;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.8); z-index: 10;
+        }
+
+        .hidden { display: none !important; }
+
+        .btn {
+            background: var(--primary-color);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+            text-transform: uppercase;
+        }
+
+        .btn:hover { filter: brightness(1.2); }
+
+        .settings-bar {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .theme-btn {
+            width: 25px; height: 25px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            cursor: pointer;
+        }
+
+        footer { margin-top: 20px; font-size: 0.8rem; }
+        footer a { color: var(--primary-color); text-decoration: none; }
+
+        /* Sound Control */
+        .sound-toggle {
+            cursor: pointer;
+            font-size: 1.2rem;
+            opacity: 0.7;
+        }
+        .sound-toggle.muted { opacity: 0.3; }
+
+        @media (max-width: 400px) {
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body data-theme="neon">
+
+<div class="container">
+    <header style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <h1>SNAKE PRO</h1>
+        <div id="soundToggle" class="sound-toggle" onclick="toggleSound()">🔊</div>
+    </header>
+
+    <div class="top-bar">
+        <div class="stat">
+            <div class="stat-label">SCORE</div>
+            <div id="score" class="stat-value">0</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">HIGH</div>
+            <div id="highScore" class="stat-value">0</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">LEVEL</div>
+            <div id="level" class="stat-value">1</div>
+        </div>
+    </div>
+
+    <div class="game-area" id="gameArea">
+        <canvas id="game" width="400" height="400"></canvas>
+        
+        <div id="startOverlay" class="overlay">
+            <h2 style="margin-bottom: 20px;">PRO EDITION</h2>
+            <button class="btn" onclick="startGame()">INSERT COIN (START)</button>
+            <p style="font-size: 0.7rem; margin-top: 20px; opacity: 0.6;">ARROWS/WASD TO MOVE | P TO PAUSE</p>
+        </div>
+
+        <div id="gameOverOverlay" class="overlay hidden">
+            <h2 style="color: var(--danger-color); margin-bottom: 10px;">GAME OVER</h2>
+            <p id="finalScoreText">SCORE: 0</p>
+            <button class="btn" onclick="startGame()">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <div class="settings-bar">
+        <div class="theme-btn" style="background: #38bdf8;" onclick="setTheme('neon')" title="Neon"></div>
+        <div class="theme-btn" style="background: #facc15;" onclick="setTheme('retro')" title="Retro"></div>
+        <div class="theme-btn" style="background: #475569;" onclick="setTheme('classic')" title="Classic"></div>
+    </div>
+
+    <footer>
+        <a href="https://www.linkedin.com/in/md-nazmul-hasan-120346328/" target="_blank">
+            MD NAZMUL HASAN
+        </a>
+    </footer>
+</div>
+
+<script>
+    // --- Audio System (Web Audio API) ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let isMuted = false;
+
+    function playSound(freq, type, duration, vol = 0.1) {
+        if (isMuted) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    const sounds = {
+        eat: () => { playSound(600, 'square', 0.1); setTimeout(() => playSound(800, 'square', 0.1), 50); },
+        move: () => playSound(150, 'sine', 0.05, 0.05),
+        gameOver: () => { 
+            playSound(300, 'sawtooth', 0.3); 
+            setTimeout(() => playSound(200, 'sawtooth', 0.3), 200);
+            setTimeout(() => playSound(150, 'sawtooth', 0.5), 400);
+        },
+        levelUp: () => { playSound(440, 'triangle', 0.2); setTimeout(() => playSound(880, 'triangle', 0.3), 200); }
+    };
+
+    function toggleSound() {
+        isMuted = !isMuted;
+        document.getElementById('soundToggle').innerText = isMuted ? '🔇' : '🔊';
+        document.getElementById('soundToggle').classList.toggle('muted', isMuted);
+    }
+
+    // --- Game Logic ---
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const scoreElement = document.getElementById("score");
+    const highScoreElement = document.getElementById("highScore");
+    const levelElement = document.getElementById("level");
+    const startOverlay = document.getElementById("startOverlay");
+    const gameOverOverlay = document.getElementById("gameOverOverlay");
+
+    const box = 20;
+    const canvasSize = 400;
+    const grid = canvasSize / box;
+
+    let snake, food, direction, nextDir, score, level, gameInterval, isPaused, gameRunning;
+    let highScore = localStorage.getItem("snakeHighScorePro") || 0;
+    highScoreElement.innerText = highScore;
+
+    function setTheme(theme) {
+        document.body.setAttribute('data-theme', theme);
+        playSound(400, 'sine', 0.1);
+    }
+
+    function createFood() {
+        food = {
+            x: Math.floor(Math.random() * grid) * box,
+            y: Math.floor(Math.random() * grid) * box
+        };
+        if (snake.some(p => p.x === food.x && p.y === food.y)) createFood();
+    }
+
+    function initGame() {
+        snake = [{x: 10*box, y: 10*box}, {x: 9*box, y: 10*box}, {x: 8*box, y: 10*box}];
+        direction = nextDir = "RIGHT";
+        score = 0; level = 1;
+        scoreElement.innerText = score;
+        levelElement.innerText = level;
+        createFood();
+    }
+
+    function startGame() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (gameInterval) clearInterval(gameInterval);
+        initGame();
+        startOverlay.classList.add("hidden");
+        gameOverOverlay.classList.add("hidden");
+        gameRunning = true; isPaused = false;
+        runLoop();
+    }
+
+    function runLoop() {
+        const speed = Math.max(40, 130 - (level * 8));
+        gameInterval = setInterval(draw, speed);
+    }
+
+    function gameOver() {
+        gameRunning = false;
+        clearInterval(gameInterval);
+        sounds.gameOver();
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem("snakeHighScorePro", highScore);
+            highScoreElement.innerText = highScore;
+        }
+        document.getElementById("finalScoreText").innerText = "SCORE: " + score;
+        gameOverOverlay.classList.remove("hidden");
+    }
+
+    function togglePause() {
+        if (!gameRunning) return;
+        isPaused = !isPaused;
+        if (isPaused) {
+            clearInterval(gameInterval);
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(0, 0, canvasSize, canvasSize);
+            ctx.fillStyle = "#fff";
+            ctx.font = "20px Courier New";
+            ctx.textAlign = "center";
+            ctx.fillText("PAUSED", canvasSize/2, canvasSize/2);
+        } else {
+            runLoop();
+        }
+    }
+
+    window.addEventListener("keydown", e => {
+        const k = e.key.toLowerCase();
+        if ((k === "arrowleft" || k === "a") && direction !== "RIGHT") nextDir = "LEFT";
+        if ((k === "arrowup" || k === "w") && direction !== "DOWN") nextDir = "UP";
+        if ((k === "arrowright" || k === "d") && direction !== "LEFT") nextDir = "RIGHT";
+        if ((k === "arrowdown" || k === "s") && direction !== "UP") nextDir = "DOWN";
+        if (k === "p") togglePause();
+    });
+
+    function draw() {
+        if (isPaused) return;
+        direction = nextDir;
+        
+        let headX = snake[0].x;
+        let headY = snake[0].y;
+
+        if (direction === "LEFT") headX -= box;
+        if (direction === "UP") headY -= box;
+        if (direction === "RIGHT") headX += box;
+        if (direction === "DOWN") headY += box;
+
+        // Collision
+        if (headX < 0 || headY < 0 || headX >= canvasSize || headY >= canvasSize || 
+            snake.some(p => p.x === headX && p.y === headY)) {
+            gameOver(); return;
+        }
+
+        const newHead = {x: headX, y: headY};
+
+        if (headX === food.x && headY === food.y) {
+            score += 10;
+            scoreElement.innerText = score;
+            sounds.eat();
+            createFood();
+            if (score % 50 === 0) {
+                level++;
+                levelElement.innerText = level;
+                sounds.levelUp();
+                clearInterval(gameInterval);
+                runLoop();
+            }
+        } else {
+            snake.pop();
+        }
+
+        snake.unshift(newHead);
+
+        // Render
+        const theme = document.body.getAttribute('data-theme');
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg');
+        ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+        // Grid for retro
+        if (theme === 'retro') {
+            ctx.strokeStyle = "rgba(250, 204, 21, 0.05)";
+            for(let i=0; i<canvasSize; i+=box) {
+                ctx.strokeRect(i, 0, 1, canvasSize);
+                ctx.strokeRect(0, i, canvasSize, 1);
+            }
+        }
+
+        // Snake
+        snake.forEach((p, i) => {
+            ctx.fillStyle = i === 0 ? 
+                getComputedStyle(document.documentElement).getPropertyValue('--primary-color') : 
+                getComputedStyle(document.documentElement).getPropertyValue('--secondary-color');
+            
+            if (theme === 'neon') {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = ctx.fillStyle;
+            }
+            
+            ctx.fillRect(p.x + 1, p.y + 1, box - 2, box - 2);
+            ctx.shadowBlur = 0;
+        });
+
+        // Food
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--danger-color');
+        if (theme === 'neon') {
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = ctx.fillStyle;
+        }
+        ctx.beginPath();
+        ctx.arc(food.x + box/2, food.y + box/2, box/2 - 2, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    // Initial fill
+    ctx.fillStyle = "#020617";
+    ctx.fillRect(0, 0, canvasSize, canvasSize);
+</script>
+</body>
+</html>
