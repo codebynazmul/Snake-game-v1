@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNAKE v2.0 - CYBERPUNK EVOLUTION (FINAL FIXED)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap');
+
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --neon-green: #39ff14;
+            --cyber-yellow: #f3ec19;
+            --dark-bg: #050505;
+            --glass-bg: rgba(15, 15, 15, 0.85);
+            --border-glow: 0 0 15px rgba(0, 243, 255, 0.4);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 243, 255, 0.05) 0%, transparent 70%),
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 100%, 100% 2px, 3px 100%;
+        }
+
+        .cyber-container {
+            width: 100%; max-width: 550px;
+            display: flex; flex-direction: column; gap: 15px; padding: 20px;
+            position: relative;
+        }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid var(--neon-blue); padding-bottom: 10px;
+            box-shadow: 0 5px 15px -5px var(--neon-blue);
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem; font-weight: 900;
+            text-transform: uppercase; letter-spacing: 4px;
+            background: linear-gradient(to right, var(--neon-blue), var(--neon-pink));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 5px var(--neon-blue));
+        }
+
+        .hud {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            background: var(--glass-bg); padding: 15px; border-radius: 4px;
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            backdrop-filter: blur(10px); gap: 10px;
+        }
+
+        .hud-item { text-align: center; position: relative; }
+        .hud-label { font-size: 0.7rem; color: var(--neon-blue); text-transform: uppercase; letter-spacing: 1px; }
+        .hud-value { font-size: 1.3rem; font-weight: 700; font-family: 'Orbitron'; color: #fff; }
+
+        .focus-bar-container {
+            grid-column: span 4; height: 6px; background: rgba(255,255,255,0.1);
+            border-radius: 3px; overflow: hidden; margin-top: 5px;
+        }
+        #focusBar { height: 100%; width: 100%; background: var(--cyber-yellow); box-shadow: 0 0 10px var(--cyber-yellow); transition: width 0.1s linear; }
+
+        .viewport {
+            position: relative; border: 3px solid var(--neon-blue);
+            border-radius: 8px; overflow: hidden;
+            box-shadow: var(--border-glow);
+        }
+
+        canvas { background: #000; display: block; max-width: 100%; }
+
+        .overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100; text-align: center; backdrop-filter: blur(5px);
+        }
+
+        .btn {
+            background: transparent; color: var(--neon-blue);
+            border: 2px solid var(--neon-blue); padding: 12px 30px;
+            font-family: 'Orbitron'; font-weight: 700; cursor: pointer;
+            text-transform: uppercase; transition: all 0.3s;
+            margin: 10px; position: relative; overflow: hidden;
+        }
+        .btn:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 20px var(--neon-blue); }
+        
+        .level-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+            margin: 20px 0; width: 100%;
+        }
+        .level-node {
+            background: rgba(255,255,255,0.05); padding: 15px; border: 1px solid rgba(0,243,255,0.3);
+            cursor: pointer; transition: all 0.3s;
+        }
+        .level-node.locked { opacity: 0.3; cursor: not-allowed; border-color: #444; }
+        .level-node.active { background: rgba(0,243,255,0.15); border-color: var(--neon-blue); box-shadow: inset 0 0 10px var(--neon-blue); }
+        .level-node:hover:not(.locked) { transform: scale(1.05); border-color: var(--neon-pink); }
+
+        .combo-popup {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-family: 'Orbitron'; font-size: 3rem; font-weight: 900;
+            color: var(--neon-pink); pointer-events: none; opacity: 0;
+            text-shadow: 0 0 20px var(--neon-pink);
+        }
+
+        .glitch-text { animation: glitch 1s infinite; }
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        footer { margin-top: 15px; font-size: 0.8rem; letter-spacing: 2px; color: rgba(255,255,255,0.5); }
+        footer a { color: var(--neon-blue); text-decoration: none; font-weight: 700; }
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 500px) {
+            .hud { grid-template-columns: repeat(2, 1fr); }
+            .focus-bar-container { grid-column: span 2; }
+        }
+
+        /* Level 4 Alert Style */
+        .level-alert {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 0, 255, 0.2);
+            border: 1px solid var(--neon-pink);
+            color: #fff;
+            padding: 10px 20px;
+            font-family: 'Orbitron';
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            backdrop-filter: blur(10px);
+            z-index: 150;
+            box-shadow: 0 0 15px var(--neon-pink);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .level-alert.visible { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div class="cyber-container">
+    <header>
+        <h1 class="glitch-text">SNAKE 2.0</h1>
+        <div id="audioToggle" style="cursor:pointer; font-size: 1.5rem; color: var(--neon-blue);" onclick="toggleAudio()">🔊</div>
+    </header>
+
+    <div class="hud">
+        <div class="hud-item">
+            <div class="hud-label">Mission</div>
+            <div id="curLevel" class="hud-value">01</div>
+        </div>
+        <div class="hud-item">
+            <div class="hud-label">Score</div>
+            <div id="score" class="hud-value">0000</div>
+        </div>
+        <div class="hud-item">
+            <div class="hud-label">Combo</div>
+            <div id="combo" class="hud-value">x1</div>
+        </div>
+        <div class="hud-item">
+            <div class="hud-label">Top</div>
+            <div id="highScore" class="hud-value">0000</div>
+        </div>
+        <div class="focus-bar-container">
+            <div id="focusBar"></div>
+        </div>
+    </div>
+
+    <div class="viewport">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div id="comboPopup" class="combo-popup">COMBO!</div>
+        <div id="levelAlert" class="level-alert">SYSTEM COMPROMISED: CONTROLS SWAPPED!</div>
+
+        <!-- Start Menu -->
+        <div id="menuOverlay" class="overlay">
+            <h2 style="font-family: 'Orbitron'; font-size: 2rem; color: var(--neon-blue); margin-bottom: 10px;">SELECT SECTOR</h2>
+            <div class="level-grid" id="levelGrid"></div>
+            <button class="btn" onclick="launchMission()">INITIALIZE</button>
+            <p style="font-size: 0.7rem; color: var(--cyber-yellow); margin-top: 10px;">HOLD [SHIFT] FOR FOCUS MODE | [SPACE] FOR TURBO</p>
+        </div>
+
+        <!-- Death Overlay -->
+        <div id="deathOverlay" class="overlay hidden">
+            <h2 class="glitch-text" style="color: var(--neon-pink); font-size: 3rem; font-family: 'Orbitron';">TERMINATED</h2>
+            <p id="deathReason" style="margin: 10px 0; letter-spacing: 2px;">SYSTEM CRITICAL FAILURE</p>
+            <div style="margin: 20px 0;">
+                <div class="hud-label">FINAL SCORE</div>
+                <div id="finalScore" style="font-size: 3rem; font-family: 'Orbitron'; color: var(--neon-blue);">0</div>
+            </div>
+            <button class="btn" onclick="retryMission()">REBOOT</button>
+            <button class="btn" style="border-color: var(--neon-pink); color: var(--neon-pink);" onclick="showMenu()">SECTORS</button>
+        </div>
+
+        <!-- Victory Overlay -->
+        <div id="winOverlay" class="overlay hidden">
+            <h2 style="color: var(--neon-green); font-size: 2.5rem; font-family: 'Orbitron';">SECTOR CLEAR</h2>
+            <p style="margin: 10px 0; letter-spacing: 2px;">DATA RETRIEVED SUCCESSFULLY</p>
+            <button class="btn" onclick="nextMission()">NEXT SECTOR</button>
+            <button class="btn" style="border-color: #fff; color: #fff;" onclick="showMenu()">MENU</button>
+        </div>
+    </div>
+
+    <footer>
+        CORE_SYS // <a href="https://www.linkedin.com/in/md-nazmul-hasan-120346328/" target="_blank">MD NAZMUL HASAN</a>
+    </footer>
+</div>
+
+<script>
+    // --- Audio System ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let audioMuted = false;
+    function playNote(f, t, d, v=0.1) {
+        if(audioMuted) return;
+        try {
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+            g.gain.setValueAtTime(v, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + d);
+        } catch(e) {}
+    }
+    const sfx = {
+        eat: () => { playNote(800, 'sine', 0.1); setTimeout(()=>playNote(1200, 'sine', 0.1), 50); },
+        hit: () => { playNote(100, 'sawtooth', 0.5); screenShake(15); },
+        win: () => { [440, 554, 659, 880].forEach((f, i) => setTimeout(()=>playNote(f, 'square', 0.2), i*100)); },
+        combo: () => { playNote(1500, 'triangle', 0.2); },
+        focus: (on) => { playNote(on ? 200 : 400, 'sine', 0.2, 0.05); }
+    };
+    function toggleAudio() { audioMuted = !audioMuted; document.getElementById('audioToggle').innerText = audioMuted ? '🔇' : '🔊'; }
+
+    // --- Game Logic ---
+    const canvas = document.getElementById("gameCanvas"), ctx = canvas.getContext("2d");
+    const box = 20, grid = 20;
+    let snake, food, direction, nextDir, score, combo, comboTimer, focus, gameInterval, gameRunning, levelIdx = 0;
+    let unlocked = parseInt(localStorage.getItem('snake2_unlocked')) || 1;
+    let highScores = JSON.parse(localStorage.getItem('snake2_highs')) || {};
+    let isTurbo = false, isFocus = false;
+
+    // REDESIGNED LEVEL ARCHITECTURE - ALL OPEN WALLS
+    const SECTORS = [
+        { name: "NEON CITY", target: 100, speed: 110, walls: [] },
+        { name: "DATA CORE", target: 150, speed: 100, walls: [{x:4,y:4,w:12,h:1},{x:4,y:15,w:12,h:1}] },
+        { name: "GRID LOCK", target: 200, speed: 95, walls: [{x:4,y:4,w:1,h:12},{x:15,y:4,w:1,h:12}] }, // PILLAR WALLS (OPEN)
+        { name: "THE VOID", target: 250, speed: 85, walls: [{x:6,y:6,w:8,h:1},{x:6,y:13,w:8,h:1}] }, // OPEN TOP/BOTTOM
+        { name: "SYNTH WAVE", target: 300, speed: 75, walls: [{x:5,y:5,w:2,h:2},{x:13,y:5,w:2,h:2},{x:5,y:13,w:2,h:2},{x:13,y:13,w:2,h:2}] }
+    ];
+
+    function screenShake(amt) {
+        const container = document.querySelector('.cyber-container');
+        let start = Date.now();
+        let timer = setInterval(() => {
+            let elapsed = Date.now() - start;
+            if(elapsed > 200) { container.style.transform = 'none'; clearInterval(timer); return; }
+            container.style.transform = `translate(${Math.random()*amt - amt/2}px, ${Math.random()*amt - amt/2}px)`;
+        }, 20);
+    }
+
+    function initLevelGrid() {
+        const gridEl = document.getElementById('levelGrid');
+        gridEl.innerHTML = '';
+        SECTORS.forEach((s, i) => {
+            const node = document.createElement('div');
+            node.className = `level-node ${i+1 > unlocked ? 'locked' : ''} ${i === levelIdx ? 'active' : ''}`;
+            node.onclick = () => { if(i+1 <= unlocked) { levelIdx = i; sfx.eat(); initLevelGrid(); } };
+            node.innerHTML = `<div class="hud-label">Sector ${String(i+1).padStart(2,'0')}</div><div style="font-weight:700; font-size:0.8rem;">${s.name}</div>`;
+            gridEl.appendChild(node);
+        });
+    }
+
+    function createFood() {
+        let pos = { x: Math.floor(Math.random()*grid)*box, y: Math.floor(Math.random()*grid)*box };
+        // Strictly check if food is on a wall
+        let onWall = SECTORS[levelIdx].walls.some(w => pos.x >= w.x*box && pos.x < (w.x+w.w)*box && pos.y >= w.y*box && pos.y < (w.y+w.h)*box);
+        // Strictly check if food is on the snake
+        let onSnake = snake.some(p => p.x === pos.x && p.y === pos.y);
+        if(onSnake || onWall) return createFood();
+        return pos;
+    }
+
+    function showMenu() {
+        gameRunning = false; if(gameInterval) clearInterval(gameInterval);
+        document.querySelectorAll('.overlay').forEach(o => o.classList.add('hidden'));
+        document.getElementById('menuOverlay').classList.remove('hidden');
+        document.getElementById('levelAlert').classList.remove('visible');
+        initLevelGrid();
+    }
+
+    function launchMission() {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        document.getElementById('menuOverlay').classList.add('hidden');
+        initGame();
+    }
+
+    function initGame() {
+        if(gameInterval) clearInterval(gameInterval);
+        snake = [{x: 10*box, y: 10*box}, {x: 9*box, y: 10*box}, {x: 8*box, y: 10*box}];
+        direction = nextDir = "RIGHT";
+        score = 0; combo = 1; comboTimer = 0; focus = 100;
+        food = createFood();
+        gameRunning = true;
+        updateUI();
+        runLoop();
+
+        // Level 4 Alert
+        const alert = document.getElementById('levelAlert');
+        if(levelIdx === 3) {
+            alert.classList.add('visible');
+            setTimeout(() => alert.classList.remove('visible'), 3000);
+        } else {
+            alert.classList.remove('visible');
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('score').innerText = String(score).padStart(4, '0');
+        document.getElementById('curLevel').innerText = String(levelIdx + 1).padStart(2, '0');
+        document.getElementById('combo').innerText = `x${combo}`;
+        document.getElementById('highScore').innerText = String(highScores[levelIdx] || 0).padStart(4, '0');
+        document.getElementById('focusBar').style.width = `${focus}%`;
+        document.getElementById('combo').style.color = combo > 1 ? 'var(--neon-pink)' : '#fff';
+    }
+
+    function runLoop() {
+        if(gameInterval) clearInterval(gameInterval);
+        let speed = SECTORS[levelIdx].speed;
+        if(isTurbo) speed /= 2;
+        if(isFocus) speed *= 2.5;
+        gameInterval = setInterval(draw, speed);
+    }
+
+    function retryMission() {
+        document.getElementById('deathOverlay').classList.add('hidden');
+        initGame();
+    }
+
+    function nextMission() {
+        if(levelIdx < SECTORS.length - 1) {
+            levelIdx++;
+            document.getElementById('winOverlay').classList.add('hidden');
+            initGame();
+        } else {
+            showMenu();
+        }
+    }
+
+    window.addEventListener('keydown', e => {
+        const k = e.key.toUpperCase();
+        const isLevel4 = levelIdx === 3;
+        
+        if (k === ' ' && !isTurbo) { isTurbo = true; runLoop(); return; }
+        if (k === 'SHIFT' && !isFocus && focus > 10) { isFocus = true; sfx.focus(true); runLoop(); return; }
+
+        let targetDir = null;
+        if (k === 'ARROWUP' || k === 'W') targetDir = isLevel4 ? 'DOWN' : 'UP';
+        else if (k === 'ARROWDOWN' || k === 'S') targetDir = isLevel4 ? 'UP' : 'DOWN';
+        else if (k === 'ARROWLEFT' || k === 'A') targetDir = isLevel4 ? 'RIGHT' : 'LEFT';
+        else if (k === 'ARROWRIGHT' || k === 'D') targetDir = isLevel4 ? 'LEFT' : 'RIGHT';
+
+        if (targetDir) {
+            if (targetDir === 'UP' && direction !== 'DOWN') nextDir = 'UP';
+            else if (targetDir === 'DOWN' && direction !== 'UP') nextDir = 'DOWN';
+            else if (targetDir === 'LEFT' && direction !== 'RIGHT') nextDir = 'LEFT';
+            else if (targetDir === 'RIGHT' && direction !== 'LEFT') nextDir = 'RIGHT';
+        }
+    });
+
+    window.addEventListener('keyup', e => {
+        const k = e.key.toUpperCase();
+        if(k === ' ') { isTurbo = false; runLoop(); }
+        if(k === 'SHIFT') { isFocus = false; sfx.focus(false); runLoop(); }
+    });
+
+    function draw() {
+        if(!gameRunning) return;
+        direction = nextDir;
+        
+        if(isFocus) {
+            focus -= 2;
+            if(focus <= 0) { focus = 0; isFocus = false; sfx.focus(false); runLoop(); }
+        } else if(focus < 100) {
+            focus += 0.2;
+        }
+
+        if(comboTimer > 0) {
+            comboTimer--;
+            if(comboTimer <= 0) { combo = 1; updateUI(); }
+        }
+
+        let head = { ...snake[0] };
+        if(direction === 'UP') head.y -= box;
+        else if(direction === 'DOWN') head.y += box;
+        else if(direction === 'LEFT') head.x -= box;
+        else if(direction === 'RIGHT') head.x += box;
+
+        // Collision Check
+        let hitWall = head.x < 0 || head.y < 0 || head.x >= 400 || head.y >= 400;
+        let hitSelf = snake.some(p => p.x === head.x && p.y === head.y);
+        let hitSectorWall = SECTORS[levelIdx].walls.some(w => head.x >= w.x*box && head.x < (w.x+w.w)*box && head.y >= w.y*box && head.y < (w.y+w.h)*box);
+
+        if(hitWall || hitSelf || hitSectorWall) {
+            sfx.hit();
+            gameRunning = false; clearInterval(gameInterval);
+            if(score > (highScores[levelIdx] || 0)) {
+                highScores[levelIdx] = score;
+                localStorage.setItem('snake2_highs', JSON.stringify(highScores));
+            }
+            document.getElementById('finalScore').innerText = score;
+            document.getElementById('deathOverlay').classList.remove('hidden');
+            return;
+        }
+
+        snake.unshift(head);
+
+        if(head.x === food.x && head.y === food.y) {
+            score += 10 * combo;
+            combo++;
+            comboTimer = 30;
+            if(combo > 2) {
+                const popup = document.getElementById('comboPopup');
+                popup.innerText = `${combo}x COMBO!`;
+                popup.style.opacity = 1;
+                setTimeout(() => popup.style.opacity = 0, 500);
+                sfx.combo();
+            }
+            sfx.eat();
+            food = createFood();
+            updateUI();
+            
+            if(score >= SECTORS[levelIdx].target) {
+                sfx.win();
+                gameRunning = false; clearInterval(gameInterval);
+                if(levelIdx + 1 === unlocked && unlocked < SECTORS.length) {
+                    unlocked++;
+                    localStorage.setItem('snake2_unlocked', unlocked);
+                }
+                document.getElementById('winOverlay').classList.remove('hidden');
+                return;
+            }
+        } else {
+            snake.pop();
+        }
+
+        // --- Render ---
+        ctx.fillStyle = '#000'; ctx.fillRect(0,0,400,400);
+        
+        ctx.strokeStyle = 'rgba(0, 243, 255, 0.05)';
+        ctx.lineWidth = 1;
+        for(let i=0; i<400; i+=box) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 400); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(400, i); ctx.stroke();
+        }
+
+        ctx.fillStyle = 'rgba(0, 243, 255, 0.2)';
+        ctx.strokeStyle = varColor('--neon-blue');
+        SECTORS[levelIdx].walls.forEach(w => {
+            ctx.fillRect(w.x*box, w.y*box, w.w*box, w.h*box);
+            ctx.strokeRect(w.x*box, w.y*box, w.w*box, w.h*box);
+        });
+
+        ctx.shadowBlur = 15; ctx.shadowColor = varColor('--neon-pink');
+        ctx.fillStyle = varColor('--neon-pink');
+        ctx.beginPath(); ctx.arc(food.x+10, food.y+10, 8, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        snake.forEach((p, i) => {
+            const isHead = i === 0;
+            ctx.shadowBlur = isHead ? 15 : 5;
+            ctx.shadowColor = isHead ? varColor('--neon-blue') : varColor('--neon-green');
+            
+            if(isTurbo) ctx.shadowColor = '#fff';
+            if(isFocus) ctx.shadowColor = varColor('--cyber-yellow');
+
+            ctx.fillStyle = isHead ? varColor('--neon-blue') : varColor('--neon-green');
+            if(isTurbo) ctx.fillStyle = '#fff';
+            if(isFocus) ctx.fillStyle = varColor('--cyber-yellow');
+
+            ctx.beginPath();
+            ctx.roundRect(p.x+1, p.y+1, box-2, box-2, isHead ? 6 : 4);
+            ctx.fill();
+
+            if(isHead) {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(p.x+4, p.y+4, 4, 4);
+                ctx.fillRect(p.x+12, p.y+4, 4, 4);
+            }
+        });
+        ctx.shadowBlur = 0;
+        updateUI();
+    }
+
+    function varColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+    showMenu();
+</script>
+</body>
+</html>
